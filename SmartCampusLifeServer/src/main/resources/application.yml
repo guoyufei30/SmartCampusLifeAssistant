@@ -1,0 +1,14 @@
+spring:
+  server:
+    address: 0.0.0.0
+    port: 8080
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/campus?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+    username: root         #用户名修改为使用的MySQL数据库的用户名
+    password: Housizhe3534 #密码修改为数据库的密码
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
