@@ -1,0 +1,172 @@
+erDiagram
+    %% ==================== 用户模块 ====================
+    USER {
+        string user_id PK "用户ID (usr_xxx)"
+        string phone UK "手机号"
+        string password "密码(加密)"
+        string nickname "昵称"
+        string avatar "头像URL"
+        string gender "性别: 未知/男/女"
+        string grade "年级: 大一/大二/大三/大四/研究生"
+        date birth_date "出生日期"
+        string department "院系/专业"
+        int height "身高(cm)"
+        decimal weight "体重(kg)"
+        string role "角色: user/admin/super_admin"
+        string status "状态: normal/frozen"
+        timestamp frozen_time "冻结时间"
+        string frozen_reason "冻结原因枚举"
+        timestamp create_time "创建时间"
+        timestamp last_login_time "最后登录时间"
+    }
+
+    VERIFY_CODE {
+        string phone PK,FK "手机号"
+        string code "验证码"
+        string type "类型: register/bind"
+        timestamp expire_time "过期时间"
+    }
+
+    %% ==================== 课表与日程模块 ====================
+    SEMESTER {
+        int semester_id PK "学期ID"
+        string name "学期名称"
+        date start_date "开始日期"
+        date end_date "结束日期"
+        boolean is_current "是否为当前学期"
+    }
+
+    USER_SEMESTER {
+        string user_id PK,FK "用户ID"
+        int semester_id PK,FK "学期ID"
+    }
+
+    COURSE {
+        int course_id PK "课程ID"
+        string user_id FK "用户ID"
+        int semester_id FK "学期ID"
+        string name "课程名称"
+        string week_pattern "周次模式"
+        int day_of_week "星期(1-7)"
+        int start_period "开始节次"
+        int end_period "结束节次"
+        string location "上课地点"
+    }
+
+    SCHEDULE_EVENT {
+        string event_id PK "事件ID (evt_xxx)"
+        string user_id FK "用户ID"
+        string title "标题"
+        string category "分类: course/exam/activity/ddl/personal"
+        datetime start_time "开始时间"
+        datetime end_time "结束时间"
+        datetime deadline "截止时间"
+        string location "地点"
+        string remark "备注"
+        string reminder "提醒设置"
+        string status "状态: pending/in_progress/overdue/completed"
+        timestamp create_time "创建时间"
+    }
+
+    ANNOUNCEMENT {
+        int id PK "公告ID"
+        string content "公告内容"
+        string type "类型: system/sport"
+        boolean dismissible "是否可关闭"
+        string status "状态: active/offline"
+        timestamp create_time "创建时间"
+    }
+
+    USER_ANNOUNCEMENT {
+        string user_id PK,FK "用户ID"
+        int announcement_id PK,FK "公告ID"
+        boolean dismissed "是否已关闭"
+    }
+
+    %% ==================== 健康数据模块 ====================
+    SLEEP_RECORD {
+        string record_id PK "记录ID"
+        string user_id FK "用户ID"
+        date sleep_date "睡眠归属日期"
+        datetime bed_time "入睡时间"
+        datetime wake_time "起床时间"
+        decimal duration "睡眠时长"
+        string quality "质量"
+        boolean is_abnormal "是否异常记录"
+        timestamp create_time "创建时间"
+    }
+
+    EXERCISE_RECORD {
+        string record_id PK "记录ID"
+        string user_id FK "用户ID"
+        string type "运动类型"
+        int duration "时长(分钟)"
+        int count "频次"
+        date record_date "记录日期"
+        timestamp create_time "创建时间"
+    }
+
+    WEIGHT_RECORD {
+        string record_id PK "记录ID"
+        string user_id FK "用户ID"
+        decimal weight "体重(kg)"
+        date record_date "记录日期"
+        timestamp create_time "创建时间"
+    }
+
+    %% ==================== 分析与周报模块 ====================
+    WEEKLY_REPORT {
+        int report_id PK "周报ID"
+        string user_id FK "用户ID"
+        int week_number "周数"
+        date start_date "开始日期"
+        date end_date "结束日期"
+        json sections "统计数据"
+        string suggestions "建议"
+        timestamp create_time "生成时间"
+    }
+
+    %% ==================== 系统配置模块 ====================
+    SYSTEM_CONFIG {
+        int id PK "配置ID"
+        string category "配置分类: health/api/system"
+        json config_data "配置JSON"
+        timestamp update_time "更新时间"
+    }
+
+    %% ==================== 管理员模块 ====================
+    ADMIN_LOG {
+        int log_id PK "日志ID"
+        string admin_id FK "管理员ID"
+        string action "操作类型枚举"
+        string action_text "操作描述"
+        string target_type "目标类型: user/announcement/config"
+        string target_id "目标ID"
+        string reason_code "原因代码枚举"
+        string reason_text "原因描述"
+        json details "详情JSON"
+        string ip_address "操作IP"
+        timestamp create_time "操作时间"
+    }
+
+    %% ==================== 关系定义 ====================
+    USER ||--o{ VERIFY_CODE : "发送验证码"
+    USER ||--o{ USER_SEMESTER : "选择学期"
+    SEMESTER ||--o{ USER_SEMESTER : "被选择"
+
+    USER ||--o{ COURSE : "导入课程"
+    SEMESTER ||--o{ COURSE : "包含课程"
+
+    USER ||--o{ SCHEDULE_EVENT : "创建日程"
+    SCHEDULE_EVENT }o--|| COURSE : "可关联课程"
+
+    USER ||--o{ SLEEP_RECORD : "记录睡眠"
+    USER ||--o{ EXERCISE_RECORD : "记录运动"
+    USER ||--o{ WEIGHT_RECORD : "记录体重"
+
+    USER ||--o{ WEEKLY_REPORT : "生成周报"
+    USER ||--o{ USER_ANNOUNCEMENT : "查看公告"
+    ANNOUNCEMENT ||--o{ USER_ANNOUNCEMENT : "被查看"
+
+    USER ||--o| ADMIN_LOG : "被管理操作"
+    ADMIN_LOG }o--|| USER : "操作者"

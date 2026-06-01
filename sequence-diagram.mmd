@@ -1,0 +1,557 @@
+classDiagram
+    direction TB
+
+    %% ==================== 通用类 ====================
+    class ApiResponse~T~ {
+        +int code
+        +string message
+        +T data
+    }
+
+    class LoginResponse {
+        +string userId
+        +string nickname
+        +string avatar
+        +string token
+        +string role
+    }
+
+    class RefreshResponse {
+        +string token
+    }
+
+    class PageResult~T~ {
+        +int total
+        +int page
+        +int pageSize
+        +List~T~ list
+    }
+
+    class ForceLogoutResponse {
+        +boolean forceLogout
+    }
+
+    %% ==================== 用户模块 ====================
+    class User {
+        +string userId
+        +string phone
+        +string nickname
+        +string avatar
+        +string gender
+        +string grade
+        +string birthDate
+        +string department
+        +int height
+        +decimal weight
+        +string role
+        +string status
+        +string createTime
+        +string lastLoginTime
+    }
+
+    class RegisterRequest {
+        +string phone
+        +string password
+        +string verifyCode
+    }
+
+    class LoginRequest {
+        +string phone
+        +string password
+    }
+
+    class UpdateProfileRequest {
+        +string nickname
+        +string gender
+        +string grade
+        +string birthDate
+        +string department
+        +int height
+        +decimal weight
+    }
+
+    class SendVerifyCodeRequest {
+        +string phone
+        +string type
+    }
+
+    class SendVerifyCodeResponse {
+        +int expireSeconds
+    }
+
+    class PhoneBindRequest {
+        +string password
+        +string newPhone
+        +string verifyCode
+    }
+
+    class ChangePasswordRequest {
+        +string oldPassword
+        +string newPassword
+    }
+
+    class AccountDeleteRequest {
+        +string password
+        +boolean confirmRisk
+    }
+
+    %% ==================== 课表日程模块 ====================
+    class Semester {
+        +int id
+        +string name
+        +string startDate
+        +string endDate
+    }
+
+    class Course {
+        +int courseId
+        +string userId
+        +int semesterId
+        +string name
+        +string weekPattern
+        +int dayOfWeek
+        +int startPeriod
+        +int endPeriod
+        +string location
+    }
+
+    class ScheduleEvent {
+        +string id
+        +string title
+        +string category
+        +string weekPattern
+        +int dayOfWeek
+        +int startPeriod
+        +int endPeriod
+        +string startTime
+        +string endTime
+        +string deadline
+        +string location
+        +string remark
+        +string reminder
+        +string status
+        +string countdown
+    }
+
+    class CreateEventRequest {
+        +string title
+        +string category
+        +string startTime
+        +string endTime
+        +string deadline
+        +string location
+        +string remark
+        +string reminder
+    }
+
+    class ConflictCheckRequest {
+        +string category
+        +string startTime
+        +string endTime
+        +string excludeId
+    }
+
+    class ConflictCheckResponse {
+        +boolean hasConflict
+        +ConflictEvent conflictEvent
+        +string note
+    }
+
+    class ConflictEvent {
+        +string id
+        +string title
+        +string category
+    }
+
+    class ImportResult {
+        +int successCount
+        +int failCount
+    }
+
+    class ReminderItem {
+        +string id
+        +string title
+        +string reminder
+        +string reminderTime
+    }
+
+    class ReminderAckRequest {
+        +string eventId
+    }
+
+    class Announcement {
+        +int id
+        +string content
+        +string type
+        +boolean dismissible
+        +string status
+        +string createTime
+    }
+
+    %% ==================== 健康数据模块 ====================
+    class SleepRecord {
+        +string id
+        +string sleepDate
+        +string bedTime
+        +string wakeTime
+        +decimal duration
+        +string quality
+        +string createTime
+    }
+
+    class CreateSleepRequest {
+        +string bedTime
+        +string wakeTime
+        +string quality
+        +string recordDate
+        +boolean confirmAbnormal
+    }
+
+    class SleepAbnormalResponse {
+        +boolean requiresConfirm
+        +decimal duration
+    }
+
+    class ExerciseRecord {
+        +string id
+        +string type
+        +int duration
+        +int count
+        +string recordDate
+        +string createTime
+    }
+
+    class CreateExerciseRequest {
+        +string type
+        +int duration
+        +int count
+        +string recordDate
+    }
+
+    class WeightRecord {
+        +string id
+        +decimal weight
+        +string recordDate
+        +string createTime
+    }
+
+    class CreateWeightRequest {
+        +decimal weight
+        +string recordDate
+    }
+
+    class ChartData {
+        +string type
+        +string startDate
+        +string endDate
+        +List~string~ xAxis
+        +List~Object~ yAxis
+        +string unit
+    }
+
+    %% ==================== 分析周报模块 ====================
+    class SleepAnalysis {
+        +List~Alert~ alerts
+        +SleepSummary summary
+    }
+
+    class Alert {
+        +string type
+        +string suggestion
+    }
+
+    class SleepSummary {
+        +decimal avgDuration
+        +string avgQuality
+    }
+
+    class ExerciseAnalysis {
+        +int defaultTarget
+        +int adjustedTarget
+        +string adjustReason
+        +int actualMinutes
+        +decimal progress
+        +string status
+        +List~string~ suggestions
+    }
+
+    class PressureAnalysis {
+        +int apiScore
+        +string level
+        +string levelText
+        +PressureBreakdown breakdown
+    }
+
+    class PressureBreakdown {
+        +int courseHours
+        +decimal courseContribution
+        +int examCount
+        +decimal examContribution
+        +int ddlCount
+        +decimal ddlContribution
+        +decimal completionRate
+        +decimal completionContribution
+    }
+
+    class ProcrastinationAnalysis {
+        +int weekCompletionRate
+        +int onTimeRate
+        +int threshold
+        +string alert
+        +string suggestion
+    }
+
+    class SportSuggestion {
+        +boolean hasSuggestion
+        +List~SportSlot~ suggestions
+    }
+
+    class SportSlot {
+        +string startTime
+        +string endTime
+        +int duration
+        +string message
+    }
+
+    class WeeklyReport {
+        +int id
+        +int weekNumber
+        +string startDate
+        +string endDate
+        +boolean canRegenerate
+        +string regenerateAvailableUntil
+        +ReportSections sections
+        +List~string~ suggestions
+        +string createTime
+    }
+
+    class ReportSections {
+        +ScheduleSection schedule
+        +SleepSection sleep
+        +ExerciseSection exercise
+        +WeightSection weight
+        +PressureSection pressure
+    }
+
+    class ScheduleSection {
+        +int totalEvents
+        +int completed
+        +int overdue
+    }
+
+    class SleepSection {
+        +decimal avgDuration
+        +string avgQuality
+    }
+
+    class ExerciseSection {
+        +int totalMinutes
+        +boolean targetMet
+    }
+
+    class WeightSection {
+        +decimal startWeight
+        +decimal endWeight
+    }
+
+    class PressureSection {
+        +int avgScore
+        +string trend
+    }
+
+    class WeeklyHistoryItem {
+        +int id
+        +int weekNumber
+        +string startDate
+        +string endDate
+    }
+
+    class RegenerateRequest {
+        +int weekNumber
+    }
+
+    %% ==================== 管理后台模块 ====================
+    class CreateAdminRequest {
+        +string phone
+        +string password
+        +string nickname
+        +string verifyCode
+    }
+
+    class CreateAdminResponse {
+        +string userId
+        +string role
+    }
+
+    class ResetPasswordRequest {
+        +string tempPassword
+    }
+
+    class ResetPasswordResponse {
+        +string tempPassword
+        +boolean forceChange
+    }
+
+    class DashboardData {
+        +int totalUsers
+        +int dailyActiveUsers
+        +int dailyScheduleAdds
+        +int dailyHealthLogs
+        +List~DistributionItem~ genderDistribution
+        +List~DistributionItem~ gradeDistribution
+        +List~DistributionItem~ departmentDistribution
+    }
+
+    class DistributionItem {
+        +string name
+        +int value
+    }
+
+    class AdminUserItem {
+        +string userId
+        +string phone
+        +string nickname
+        +string gender
+        +string grade
+        +string status
+        +string createTime
+        +string lastLoginTime
+    }
+
+    class FreezeRequest {
+        +string reasonCode
+    }
+
+    class FreezeResponse {
+        +string userId
+        +string freezeTime
+        +string reasonCode
+        +string reasonText
+    }
+
+    class UnfreezeResponse {
+        +string userId
+        +string unfreezeTime
+    }
+
+    class OperationLog {
+        +int logId
+        +string adminId
+        +string adminNickname
+        +string action
+        +string actionText
+        +string targetType
+        +string targetId
+        +string targetNickname
+        +string reasonCode
+        +string reasonText
+        +Object details
+        +string ipAddress
+        +string createTime
+    }
+
+    class ExceptionLog {
+        +int logId
+        +string userId
+        +string exceptionType
+        +string payload
+        +string exceptionDetail
+        +string requestUrl
+        +string ipAddress
+        +string createTime
+    }
+
+    class CleanLogsRequest {
+        +string logType
+        +string beforeDate
+    }
+
+    class CleanLogsResponse {
+        +int deletedCount
+    }
+
+    class PublishAnnouncementRequest {
+        +string content
+        +string type
+    }
+
+    class PublishAnnouncementResponse {
+        +int announcementId
+    }
+
+    class AdminAnnouncementItem {
+        +int id
+        +string content
+        +string type
+        +boolean dismissible
+        +string status
+        +string createTime
+    }
+
+    class SystemConfig {
+        +HealthConfig health
+        +ApiConfig api
+        +SystemConfigInner system
+    }
+
+    class HealthConfig {
+        +int defaultExerciseTarget
+    }
+
+    class ApiConfig {
+        +ApiWeights apiWeights
+    }
+
+    class ApiWeights {
+        +int courseHours
+        +int examCount
+        +int ddlCount
+        +int completionRate
+    }
+
+    class SystemConfigInner {
+        +int logRetentionDays
+        +int abnormalCheckinThreshold
+        +int procrastinationThreshold
+    }
+
+    class UpdateConfigRequest {
+        +HealthConfig health
+        +ApiConfig api
+        +SystemConfigInner system
+    }
+
+    %% ==================== 关系定义 ====================
+    ApiResponse <|-- LoginResponse
+    ApiResponse <|-- RefreshResponse
+    ApiResponse <|-- PageResult
+    ApiResponse <|-- ForceLogoutResponse
+    ApiResponse <|-- DashboardData
+    ApiResponse <|-- SystemConfig
+
+    ScheduleEvent o-- ConflictEvent
+    ConflictCheckResponse o-- ConflictEvent
+
+    SleepAnalysis o-- Alert
+    SleepAnalysis o-- SleepSummary
+    PressureAnalysis o-- PressureBreakdown
+    WeeklyReport o-- ReportSections
+    ReportSections o-- ScheduleSection
+    ReportSections o-- SleepSection
+    ReportSections o-- ExerciseSection
+    ReportSections o-- WeightSection
+    ReportSections o-- PressureSection
+
+    SportSuggestion o-- SportSlot
+
+    SystemConfig o-- HealthConfig
+    SystemConfig o-- ApiConfig
+    SystemConfig o-- SystemConfigInner
+    ApiConfig o-- ApiWeights
+
+    DashboardData o-- DistributionItem
+    PageResult o-- AdminUserItem
+    PageResult o-- OperationLog
+    PageResult o-- ExceptionLog
+    PageResult o-- AdminAnnouncementItem
+    PageResult o-- WeeklyHistoryItem
