@@ -16,8 +16,16 @@ export function unfreezeUser(userId) {
   return request.post(`/admin/users/${userId}/unfreeze`)
 }
 
-export function getAnnouncements(config = {}) {
-  return request.get('/admin/announcements', config)
+export function resetUserPassword(userId, data) {
+  return request.post(`/admin/users/${userId}/reset_password`, data)
+}
+
+export function createAdmin(data) {
+  return request.post('/admin/admins', data)
+}
+
+export function getAnnouncements(params, config = {}) {
+  return request.get('/admin/announcements', { ...config, params })
 }
 
 export function createAnnouncement(data) {
@@ -34,4 +42,16 @@ export function getConfig(config = {}) {
 
 export function updateConfig(data) {
   return request.put('/admin/config', data)
+}
+
+export function getOperationLogs(params, config = {}) {
+  return request.get('/admin/logs/operation', { ...config, params })
+}
+
+export function getExceptionLogs(params, config = {}) {
+  return request.get('/admin/logs/exception', { ...config, params })
+}
+
+export function cleanLogs(params) {
+  return request.delete('/admin/logs/clean', { params })
 }

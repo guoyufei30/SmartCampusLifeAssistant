@@ -6,6 +6,8 @@ import Dashboard from '../views/admin/Dashboard.vue'
 import Users from '../views/admin/Users.vue'
 import Announcements from '../views/admin/Announcements.vue'
 import Config from '../views/admin/Config.vue'
+import Admins from '../views/admin/Admins.vue'
+import Logs from '../views/admin/Logs.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -27,6 +29,8 @@ const router = createRouter({
         { path: '', redirect: '/admin/dashboard' },
         { path: 'dashboard', name: 'admin-dashboard', component: Dashboard },
         { path: 'users', name: 'admin-users', component: Users },
+        { path: 'admins', name: 'admin-admins', component: Admins },
+        { path: 'logs', name: 'admin-logs', component: Logs },
         { path: 'announcements', name: 'admin-announcements', component: Announcements },
         { path: 'config', name: 'admin-config', component: Config },
       ],

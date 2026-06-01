@@ -10,9 +10,16 @@ const form = reactive({
   content: '',
   type: 'system',
 })
+const filters = reactive({
+  status: '',
+  type: '',
+  page: 1,
+  pageSize: 20,
+})
+const total = ref(2)
 
 const announcements = ref([
-  { id: 1, content: '系统将于今晚23:00进行维护，请提前保存数据。', type: 'system', status: 'online', createTime: '2026-05-25 09:00:00' },
+  { id: 1, content: '系统将于今晚23:00进行维护，请提前保存数据。', type: 'system', status: 'active', createTime: '2026-05-25 09:00:00' },
   { id: 2, content: '运动进度落后，明天下午14:00-16:00没课，去操场跑两圈吧？', type: 'sport', status: 'offline', createTime: '2026-05-24 18:30:00' },
 ])
 
@@ -20,8 +27,13 @@ async function loadAnnouncements() {
   loading.value = true
 
   try {
-    const res = await getAnnouncements({ silentError: true })
-    announcements.value = Array.isArray(res.data) ? res.data : announcements.value
+    const res = await getAnnouncements(filters, { silentError: true })
+    const data = res.data || {}
+
+    announcements.value = Array.isArray(data) ? data : data.list || announcements.value
+    total.value = data.total ?? announcements.value.length
+    filters.page = data.page || filters.page
+    filters.pageSize = data.pageSize || filters.pageSize
   } finally {
     loading.value = false
   }
@@ -45,6 +57,16 @@ async function publish() {
   })
   dialogVisible.value = false
   ElMessage.success('发布成功')
+  loadAnnouncements()
+}
+
+function searchAnnouncements() {
+  filters.page = 1
+  loadAnnouncements()
+}
+
+function handlePageChange(page) {
+  filters.page = page
   loadAnnouncements()
 }
 
@@ -77,6 +99,18 @@ onMounted(loadAnnouncements)
       <el-button type="primary" @click="openDialog">发布公告</el-button>
     </header>
 
+    <div class="panel filter-panel">
+      <el-select v-model="filters.status" clearable placeholder="全部状态">
+        <el-option label="展示中" value="active" />
+        <el-option label="已下架" value="offline" />
+      </el-select>
+      <el-select v-model="filters.type" clearable placeholder="全部类型">
+        <el-option label="系统公告" value="system" />
+        <el-option label="运动提醒" value="sport" />
+      </el-select>
+      <el-button type="primary" :loading="loading" @click="searchAnnouncements">查询</el-button>
+    </div>
+
     <div class="panel table-panel">
       <el-table v-loading="loading" :data="announcements" stripe>
         <el-table-column prop="content" label="公告内容" min-width="360" />
@@ -89,7 +123,7 @@ onMounted(loadAnnouncements)
         </el-table-column>
         <el-table-column label="状态" width="110">
           <template #default="{ row }">
-            <el-tag :type="row.status === 'online' ? 'success' : 'info'">
+            <el-tag :type="row.status === 'active' ? 'success' : 'info'">
               {{ ANNOUNCEMENT_STATUS_TEXT[row.status] || row.status }}
             </el-tag>
           </template>
@@ -101,6 +135,16 @@ onMounted(loadAnnouncements)
           </template>
         </el-table-column>
       </el-table>
+
+      <div class="pagination">
+        <el-pagination
+          layout="prev, pager, next, total"
+          :current-page="filters.page"
+          :page-size="filters.pageSize"
+          :total="total"
+          @current-change="handlePageChange"
+        />
+      </div>
     </div>
 
     <el-dialog v-model="dialogVisible" title="发布公告" width="520px">
@@ -133,6 +177,20 @@ onMounted(loadAnnouncements)
 
 .table-panel {
   padding: 18px;
+}
+
+.filter-panel {
+  display: grid;
+  grid-template-columns: 180px 180px auto;
+  gap: 12px;
+  margin-bottom: 18px;
+  padding: 18px;
+}
+
+.pagination {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 18px;
 }
 
 .full-width {

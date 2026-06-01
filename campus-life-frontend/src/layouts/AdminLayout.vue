@@ -8,6 +8,8 @@ const authStore = useAuthStore()
 const menus = [
   { path: '/admin/dashboard', label: '仪表盘', icon: 'DataBoard' },
   { path: '/admin/users', label: '用户管理', icon: 'User' },
+  { path: '/admin/admins', label: '管理员创建', icon: 'UserFilled' },
+  { path: '/admin/logs', label: '日志管理', icon: 'Tickets' },
   { path: '/admin/announcements', label: '公告管理', icon: 'Bell' },
   { path: '/admin/config', label: '系统配置', icon: 'Setting' },
 ]

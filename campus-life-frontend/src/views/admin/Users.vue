@@ -1,8 +1,8 @@
 <script setup>
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { freezeUser, getUsers, unfreezeUser } from '../../api/admin'
-import { FREEZE_REASONS, USER_STATUS_TEXT } from '../../constants/enums'
+import { freezeUser, getUsers, resetUserPassword, unfreezeUser } from '../../api/admin'
+import { FREEZE_REASON_TEXT, FREEZE_REASONS, USER_STATUS_TEXT } from '../../constants/enums'
 
 const filters = reactive({
   keyword: '',
@@ -14,14 +14,18 @@ const filters = reactive({
 const loading = ref(false)
 const total = ref(2)
 const freezeDialogVisible = ref(false)
+const resetDialogVisible = ref(false)
 const currentUser = ref(null)
 const freezeForm = reactive({
-  reason: '',
+  reasonCode: '',
+})
+const resetForm = reactive({
+  tempPassword: 'Temp123456',
 })
 
 const users = ref([
-  { userId: 'usr_000001', phone: '138****8000', nickname: '学霸小明', gender: '男', grade: '大二', status: 'normal', createTime: '2026-01-01 10:00:00', lastLoginTime: '2026-05-25 08:30:00' },
-  { userId: 'usr_000002', phone: '139****1234', nickname: '用户_A1b2C3d4', gender: '女', grade: '大一', status: 'frozen', createTime: '2026-02-05 13:20:00', lastLoginTime: '2026-05-20 19:12:00' },
+  { userId: 'usr_000001', phone: '138****8000', nickname: '学霸小明', gender: '男', grade: '大二', status: 'normal', freezeReasonCode: null, freezeReasonText: null, freezeTime: null, createTime: '2026-01-01 10:00:00', lastLoginTime: '2026-05-25 08:30:00' },
+  { userId: 'usr_000002', phone: '139****1234', nickname: '用户_A1b2C3d4', gender: '女', grade: '大一', status: 'frozen', freezeReasonCode: 'security_risk', freezeReasonText: '安全风险', freezeTime: '2026-05-20 19:12:00', createTime: '2026-02-05 13:20:00', lastLoginTime: '2026-05-20 19:12:00' },
 ])
 
 async function loadUsers() {
@@ -47,20 +51,47 @@ function searchUsers() {
 
 function openFreezeDialog(row) {
   currentUser.value = row
-  freezeForm.reason = ''
+  freezeForm.reasonCode = ''
   freezeDialogVisible.value = true
 }
 
 async function freeze() {
-  if (!freezeForm.reason) {
+  if (!freezeForm.reasonCode) {
     ElMessage.error('请选择冻结原因')
     return
   }
 
-  await freezeUser(currentUser.value.userId, { reason: freezeForm.reason })
+  await freezeUser(currentUser.value.userId, { reasonCode: freezeForm.reasonCode })
   freezeDialogVisible.value = false
   ElMessage.success('冻结成功')
   loadUsers()
+}
+
+function openResetDialog(row) {
+  currentUser.value = row
+  resetForm.tempPassword = 'Temp123456'
+  resetDialogVisible.value = true
+}
+
+async function resetPassword() {
+  if (!resetForm.tempPassword) {
+    ElMessage.error('请输入临时密码')
+    return
+  }
+
+  try {
+    await ElMessageBox.confirm('重置后该用户需使用临时密码登录并强制修改密码。确认重置？', '重置密码确认', {
+      confirmButtonText: '确认重置',
+      cancelButtonText: '取消',
+      type: 'warning',
+    })
+  } catch {
+    return
+  }
+
+  const res = await resetUserPassword(currentUser.value.userId, { tempPassword: resetForm.tempPassword })
+  resetDialogVisible.value = false
+  ElMessage.success(`密码已重置，临时密码：${res.data?.tempPassword || resetForm.tempPassword}`)
 }
 
 async function unfreeze(row) {
@@ -120,7 +151,14 @@ onMounted(loadUsers)
         <el-table-column prop="lastLoginTime" label="最后登录" width="180" />
         <el-table-column label="冻结原因" width="140">
           <template #default="{ row }">
-            <span class="muted-text">{{ row.status === 'frozen' ? row.freezeReason || '未记录' : '-' }}</span>
+            <span class="muted-text">
+              {{ row.status === 'frozen' ? row.freezeReasonText || FREEZE_REASON_TEXT[row.freezeReasonCode] || '未记录' : '-' }}
+            </span>
+          </template>
+        </el-table-column>
+        <el-table-column label="冻结时间" width="180">
+          <template #default="{ row }">
+            <span class="muted-text">{{ row.freezeTime || '-' }}</span>
           </template>
         </el-table-column>
         <el-table-column label="状态" width="110">
@@ -130,10 +168,11 @@ onMounted(loadUsers)
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="120" fixed="right">
+        <el-table-column label="操作" width="180" fixed="right">
           <template #default="{ row }">
             <el-button v-if="row.status === 'normal'" link type="danger" @click="openFreezeDialog(row)">冻结</el-button>
             <el-button v-else link type="primary" @click="unfreeze(row)">解封</el-button>
+            <el-button link type="warning" @click="openResetDialog(row)">重置密码</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -152,7 +191,7 @@ onMounted(loadUsers)
     <el-dialog v-model="freezeDialogVisible" title="冻结账号" width="420px">
       <el-form :model="freezeForm" label-position="top">
         <el-form-item label="冻结原因" required>
-          <el-select v-model="freezeForm.reason" class="full-width" placeholder="请选择冻结原因">
+          <el-select v-model="freezeForm.reasonCode" class="full-width" placeholder="请选择冻结原因">
             <el-option v-for="item in FREEZE_REASONS" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
         </el-form-item>
@@ -160,6 +199,18 @@ onMounted(loadUsers)
       <template #footer>
         <el-button @click="freezeDialogVisible = false">取消</el-button>
         <el-button type="danger" @click="freeze">确认冻结</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="resetDialogVisible" title="重置登录密码" width="420px">
+      <el-form :model="resetForm" label-position="top">
+        <el-form-item label="临时密码" required>
+          <el-input v-model="resetForm.tempPassword" show-password placeholder="请输入临时密码" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="resetDialogVisible = false">取消</el-button>
+        <el-button type="warning" @click="resetPassword">确认重置</el-button>
       </template>
     </el-dialog>
   </section>

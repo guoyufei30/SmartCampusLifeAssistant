@@ -9,16 +9,35 @@ export const ANNOUNCEMENT_TYPE_TEXT = {
 }
 
 export const ANNOUNCEMENT_STATUS_TEXT = {
-  online: '展示中',
+  active: '展示中',
   offline: '已下架',
 }
 
 export const FREEZE_REASONS = [
-  { label: '内容违规（昵称/备注）', value: '内容违规' },
-  { label: '安全异常（SQL注入/脚本尝试）', value: '安全异常' },
-  { label: '恶意刷单/异常打卡', value: '恶意刷单打卡' },
-  { label: '其他原因', value: '其他原因' },
+  { label: '内容违规', value: 'content_violation' },
+  { label: '安全风险', value: 'security_risk' },
+  { label: '异常打卡', value: 'abnormal_checkin' },
+  { label: '其他', value: 'other' },
 ]
+
+export const FREEZE_REASON_TEXT = {
+  content_violation: '内容违规',
+  security_risk: '安全风险',
+  abnormal_checkin: '异常打卡',
+  other: '其他',
+}
+
+export const LOG_ACTION_TEXT = {
+  freeze_user: '冻结用户',
+  unfreeze_user: '解封用户',
+  auto_freeze_user: '系统自动冻结用户',
+  reset_password: '重置密码',
+  publish_announcement: '发布公告',
+  offline_announcement: '下架公告',
+  update_config: '更新配置',
+  create_admin: '创建管理员',
+  clean_logs: '清理日志',
+}
 
 export const EVENT_CATEGORY_TEXT = {
   course: '课程',

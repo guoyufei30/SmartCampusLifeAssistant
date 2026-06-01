@@ -37,16 +37,47 @@ request.interceptors.response.use(
   (error) => {
     const authStore = useAuthStore()
     const status = error.response?.status
-    const message = error.response?.data?.message || error.message || '网络请求失败'
+    const body = error.response?.data || {}
+    const message = body.message || error.message || '网络请求失败'
+    const originalConfig = error.config || {}
 
-    if (error.config?.silentError) {
+    if (originalConfig.silentError) {
       return Promise.reject(error)
+    }
+
+    if (status === 401 && authStore.refreshToken && !originalConfig._retry && originalConfig.url !== '/auth/refresh') {
+      originalConfig._retry = true
+
+      return axios
+        .post(`${import.meta.env.VITE_API_BASE_URL}/auth/refresh`, {
+          refreshToken: authStore.refreshToken,
+        })
+        .then((refreshResponse) => {
+          const refreshData = refreshResponse.data?.data || {}
+          authStore.setToken(refreshData)
+          originalConfig.headers = originalConfig.headers || {}
+          originalConfig.headers.Authorization = `Bearer ${authStore.token}`
+          return request(originalConfig)
+        })
+        .catch(() => {
+          authStore.logout()
+          ElMessage.error('登录已过期，请重新登录')
+          window.location.href = '/login'
+          return Promise.reject(error)
+        })
     }
 
     if (status === 401) {
       authStore.logout()
       ElMessage.error('登录已过期，请重新登录')
       window.location.href = '/login'
+    } else if (status === 403 && body.subCode === 'account_frozen') {
+      authStore.logout()
+      ElMessage.error(message || '账号已被冻结，请联系管理员')
+      window.location.href = '/login'
+    } else if (status === 403 && body.subCode === 'temp_password_required') {
+      authStore.forceChangePassword = true
+      ElMessage.warning(message || '请先修改临时密码')
     } else {
       ElMessage.error(message)
     }

@@ -2,7 +2,7 @@
 import { reactive } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useRouter } from 'vue-router'
-import { adminLogin } from '../api/auth'
+import { login } from '../api/auth'
 import { useAuthStore } from '../stores/auth'
 
 const router = useRouter()
@@ -14,12 +14,17 @@ const form = reactive({
 })
 
 async function submitLogin() {
-  const res = await adminLogin(form)
+  const res = await login(form)
   const user = res.data
+
+  if (!['admin', 'super_admin'].includes(user.role)) {
+    ElMessage.error('当前账号不是管理员，无法进入管理后台')
+    return
+  }
 
   authStore.setLogin(user)
   ElMessage.success('登录成功')
-  router.push(user.role === 'user' ? '/' : '/admin/dashboard')
+  router.push('/admin/dashboard')
 }
 </script>
 

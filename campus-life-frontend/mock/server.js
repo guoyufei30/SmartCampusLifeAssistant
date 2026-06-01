@@ -17,6 +17,13 @@ function maskedPhone(prefix = '13') {
   return `${prefix}${randomInt(100000000, 999999999)}`.replace(/^(\d{3})\d{4}(\d{4})$/, '$1****$2')
 }
 
+const FREEZE_REASON_TEXT = {
+  content_violation: '内容违规',
+  security_risk: '安全风险',
+  abnormal_checkin: '异常打卡',
+  other: '其他',
+}
+
 function makeGeneratedUsers() {
   const departments = ['计算机学院', '软件学院', '自动化学院', '管理学院', '信息与电子学院', '机械与车辆学院']
   const grades = ['大一', '大二', '大三', '大四', '研究生']
@@ -42,7 +49,9 @@ function makeGeneratedUsers() {
       weight: Number((randomInt(500, 820) / 10).toFixed(1)),
       role: 'user',
       status,
-      freezeReason: status === 'frozen' ? pick(['内容违规', '安全异常', '恶意刷单打卡']) : '',
+      freezeReasonCode: status === 'frozen' ? pick(['content_violation', 'security_risk', 'abnormal_checkin']) : null,
+      freezeReasonText: null,
+      freezeTime: status === 'frozen' ? `2026-05-${String(randomInt(1, 27)).padStart(2, '0')} 14:30:00` : null,
       createTime: `2026-0${randomInt(1, 5)}-${String(randomInt(1, 27)).padStart(2, '0')} ${String(randomInt(8, 22)).padStart(2, '0')}:00:00`,
       lastLoginTime: `2026-05-${String(randomInt(1, 27)).padStart(2, '0')} ${String(randomInt(8, 22)).padStart(2, '0')}:30:00`,
     }
@@ -94,6 +103,9 @@ const db = {
       weight: 68.5,
       role: 'user',
       status: 'normal',
+      freezeReasonCode: null,
+      freezeReasonText: null,
+      freezeTime: null,
       createTime: '2026-01-01 10:00:00',
       lastLoginTime: '2026-05-25 08:30:00',
     },
@@ -112,7 +124,9 @@ const db = {
       weight: '未设置',
       role: 'user',
       status: 'frozen',
-      freezeReason: '安全异常',
+      freezeReasonCode: 'security_risk',
+      freezeReasonText: '安全风险',
+      freezeTime: '2026-05-20 19:12:00',
       createTime: '2026-02-05 13:20:00',
       lastLoginTime: '2026-05-20 19:12:00',
     },
@@ -154,13 +168,24 @@ const db = {
       countdown: '今天',
     },
   ],
+  courses: [
+    {
+      id: 'crs_000001',
+      title: '高等数学',
+      weekPattern: '1-16周',
+      dayOfWeek: 1,
+      startPeriod: 1,
+      endPeriod: 2,
+      location: '理学楼301',
+    },
+  ],
   announcements: [
     {
       id: 1,
       content: '系统将于今晚23:00进行维护，请提前保存数据。',
       type: 'system',
       dismissible: true,
-      status: 'online',
+      status: 'active',
       createTime: '2026-05-25 09:00:00',
     },
     {
@@ -190,14 +215,51 @@ const db = {
     { id: 'wgt_000001', weight: 68.5, recordDate: '2026-05-25' },
   ],
   config: {
-    defaultExerciseTarget: 150,
-    apiWeights: {
-      courseHours: 30,
-      examCount: 15,
-      ddlCount: 5,
-      completionRate: 20,
+    health: {
+      defaultExerciseTarget: 150,
+    },
+    api: {
+      apiWeights: {
+        courseHours: 30,
+        examCount: 15,
+        ddlCount: 5,
+        completionRate: 20,
+      },
+    },
+    system: {
+      logRetentionDays: 90,
+      abnormalCheckinThreshold: 50,
+      procrastinationThreshold: 70,
     },
   },
+  operationLogs: [
+    {
+      logId: 1,
+      adminId: 'adm_001',
+      adminNickname: '系统管理员',
+      action: 'freeze_user',
+      actionText: '冻结用户',
+      targetType: 'user',
+      targetId: 'usr_000002',
+      targetNickname: '用户_A1b2C3d4',
+      reasonCode: 'security_risk',
+      reasonText: '安全风险',
+      details: { phone: '139****1234' },
+      ipAddress: '127.0.0.1',
+      createTime: '2026-05-20 19:12:00',
+    },
+  ],
+  exceptionLogs: [
+    {
+      logId: 1,
+      userId: 'usr_000002',
+      exceptionType: 'sql_injection',
+      exceptionDetail: "检测到SQL注入尝试：' OR 1=1 --",
+      requestUrl: '/schedule/events',
+      ipAddress: '127.0.0.1',
+      createTime: '2026-05-20 19:10:00',
+    },
+  ],
   metrics: makeDashboardMetrics(),
 }
 
@@ -205,13 +267,19 @@ if (mockConfig.randomizeUsersOnStart) {
   db.users.push(...makeGeneratedUsers())
 }
 
+db.users.forEach((user) => {
+  if (user.freezeReasonCode && !user.freezeReasonText) {
+    user.freezeReasonText = FREEZE_REASON_TEXT[user.freezeReasonCode]
+  }
+})
+
 // 统一响应格式，对齐接口文档中的 { code, message, data }。
 function success(data = {}, message = '操作成功') {
   return { code: 200, message, data }
 }
 
-function error(code, message) {
-  return { code, message, data: null }
+function error(code, message, subCode) {
+  return { code, subCode, message, data: null }
 }
 
 function sendJson(res, payload, status = 200) {
@@ -263,7 +331,10 @@ function loginUser(phone, password) {
       nickname: admin.nickname,
       avatar: admin.avatar,
       token: 'mock-admin-token',
+      refreshToken: 'mock-admin-refresh-token',
+      expiresIn: 604800,
       role: admin.role,
+      forceChangePassword: false,
     }
   }
 
@@ -274,7 +345,7 @@ function loginUser(phone, password) {
   }
 
   if (user.status === 'frozen') {
-    return { frozen: true, reason: user.freezeReason || '违规原因' }
+    return { frozen: true, reason: user.freezeReasonText || FREEZE_REASON_TEXT[user.freezeReasonCode] || '违规原因' }
   }
 
   return {
@@ -282,7 +353,10 @@ function loginUser(phone, password) {
     nickname: user.nickname,
     avatar: user.avatar,
     token: 'mock-user-token',
+    refreshToken: 'mock-user-refresh-token',
+    expiresIn: 604800,
     role: user.role,
+    forceChangePassword: Boolean(user.forceChangePassword),
   }
 }
 
@@ -340,8 +414,8 @@ async function route(req, res) {
     return
   }
 
-  if (method === 'POST' && path === '/auth/sendVerifyCode') {
-    sendJson(res, success({}, '验证码已发送'))
+  if (method === 'POST' && path === '/auth/send_verify_code') {
+    sendJson(res, success({ expireSeconds: 300 }, '验证码已发送，有效时间为5分钟'))
     return
   }
 
@@ -369,10 +443,27 @@ async function route(req, res) {
       weight: '未设置',
       role: 'user',
       status: 'normal',
+      freezeReasonCode: null,
+      freezeReasonText: null,
+      freezeTime: null,
       createTime: '2026-05-27 10:00:00',
       lastLoginTime: '2026-05-27 10:00:00',
     })
     sendJson(res, success({ userId, token: 'mock-user-token' }, '注册成功'))
+    return
+  }
+
+  if (method === 'POST' && path === '/auth/refresh') {
+    if (!body.refreshToken) {
+      sendJson(res, error(401, 'refreshToken 无效'), 401)
+      return
+    }
+
+    sendJson(res, success({
+      token: `mock-token-${Date.now()}`,
+      refreshToken: `mock-refresh-token-${Date.now()}`,
+      expiresIn: 604800,
+    }, '刷新成功'))
     return
   }
 
@@ -385,12 +476,12 @@ async function route(req, res) {
     }
 
     if (user.frozen) {
-      sendJson(res, error(403, `您的账号因[${user.reason}]已被冻结，请联系管理员`), 403)
+      sendJson(res, error(403, `您的账号因[${user.reason}]已被冻结，请联系管理员`, 'account_frozen'), 403)
       return
     }
 
     if (path === '/admin/login' && user.role === 'user') {
-      sendJson(res, error(403, '权限不足'), 403)
+      sendJson(res, error(403, '权限不足', 'insufficient_permission'), 403)
       return
     }
 
@@ -410,6 +501,11 @@ async function route(req, res) {
   }
 
   if (method === 'PUT' && path === '/user/password') {
+    sendJson(res, success({}, '密码修改成功'))
+    return
+  }
+
+  if (method === 'POST' && path === '/user/force_password') {
     sendJson(res, success({}, '密码修改成功'))
     return
   }
@@ -439,7 +535,7 @@ async function route(req, res) {
     return
   }
 
-  if (method === 'GET' && path === '/schedule/template') {
+  if (method === 'GET' && (path === '/course/template' || path === '/schedule/template')) {
     res.writeHead(200, {
       'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       'Access-Control-Allow-Origin': '*',
@@ -448,8 +544,47 @@ async function route(req, res) {
     return
   }
 
-  if (method === 'POST' && path === '/schedule/import') {
+  if (method === 'POST' && (path === '/course/import' || path === '/schedule/import')) {
     sendJson(res, success({ successCount: 12, failCount: 0 }, '导入成功，共导入12门课程'))
+    return
+  }
+
+  if (method === 'GET' && path === '/course/list') {
+    sendJson(res, success(db.courses, '获取成功'))
+    return
+  }
+
+  if (method === 'POST' && path === '/course') {
+    const course = { id: `crs_${Date.now()}`, ...body }
+    const event = {
+      id: `evt_${Date.now()}`,
+      title: body.title,
+      category: 'course',
+      weekPattern: body.weekPattern,
+      dayOfWeek: body.dayOfWeek,
+      startPeriod: body.startPeriod,
+      endPeriod: body.endPeriod,
+      location: body.location,
+      reminder: '15min',
+      status: 'pending',
+    }
+    db.courses.push(course)
+    db.events.push(event)
+    sendJson(res, success({ courseId: course.id, eventId: event.id }, '添加成功'))
+    return
+  }
+
+  const courseMatch = path.match(/^\/course\/([^/]+)$/)
+  if (courseMatch && method === 'PUT') {
+    const course = db.courses.find((item) => item.id === courseMatch[1])
+    Object.assign(course || {}, body)
+    sendJson(res, success({}, '更新成功'))
+    return
+  }
+
+  if (courseMatch && method === 'DELETE') {
+    db.courses = db.courses.filter((item) => item.id !== courseMatch[1])
+    sendJson(res, success({}, '删除成功'))
     return
   }
 
@@ -489,13 +624,19 @@ async function route(req, res) {
     return
   }
 
-  if (method === 'POST' && path === '/schedule/events/check-conflict') {
+  if (method === 'POST' && (path === '/schedule/events/check_conflict' || path === '/schedule/events/check-conflict')) {
     sendJson(res, success({ hasConflict: false }, '无冲突'))
     return
   }
 
   if (method === 'GET' && path === '/announcements') {
-    sendJson(res, success(db.announcements.filter((item) => item.status === 'online'), '获取成功'))
+    sendJson(res, success(db.announcements.filter((item) => item.status === 'active'), '获取成功'))
+    return
+  }
+
+  const dismissAnnouncementMatch = path.match(/^\/announcements\/([^/]+)\/dismiss$/)
+  if (dismissAnnouncementMatch && method === 'POST') {
+    sendJson(res, success({}, '已关闭'))
     return
   }
 
@@ -553,7 +694,7 @@ async function route(req, res) {
   }
 
   if (method === 'GET' && path === '/analysis/exercise') {
-    sendJson(res, success({ targetMinutes: 150, actualMinutes: 75, progress: 50, status: 'behind', suggestions: ['运动进度落后，明天下午14:00-16:00没课，去操场跑两圈吧？'] }, '获取成功'))
+    sendJson(res, success({ defaultTarget: 150, adjustedTarget: 150, adjustReason: '当前身体数据和压力指数正常，沿用默认目标', actualMinutes: 75, progress: 50, status: 'behind', suggestions: ['运动进度落后，明天下午14:00-16:00没课，去操场跑两圈吧？'] }, '获取成功'))
     return
   }
 
@@ -568,12 +709,23 @@ async function route(req, res) {
   }
 
   if (method === 'GET' && path === '/report/weekly') {
-    sendJson(res, success({ weekNumber: 21, startDate: '2026-05-19', endDate: '2026-05-25', sections: { schedule: { totalEvents: 28, completed: 25, overdue: 1 }, sleep: { avgDuration: 7.5, avgQuality: '较好' }, exercise: { totalMinutes: 150, targetMet: true }, weight: { startWeight: 68.5, endWeight: 68.3 }, pressure: { avgScore: 55, trend: 'stable' } }, suggestions: ['本周运动目标已达成，继续保持！'] }, '获取成功'))
+    sendJson(res, success({ weekNumber: 21, startDate: '2026-05-19', endDate: '2026-05-25', canRegenerate: true, regenerateAvailableUntil: '2026-05-28', sections: { schedule: { totalEvents: 28, completed: 25, overdue: 1 }, sleep: { avgDuration: 7.5, avgQuality: '较好' }, exercise: { totalMinutes: 150, targetMet: true }, weight: { startWeight: 68.5, endWeight: 68.3 }, pressure: { avgScore: 55, trend: 'stable' } }, suggestions: ['本周运动目标已达成，继续保持！'] }, '获取成功'))
     return
   }
 
   if (method === 'GET' && path === '/report/weekly/history') {
     sendJson(res, success([{ id: 1, weekNumber: 21, startDate: '2026-05-19', endDate: '2026-05-25' }, { id: 2, weekNumber: 20, startDate: '2026-05-12', endDate: '2026-05-18' }], '获取成功'))
+    return
+  }
+
+  if (method === 'POST' && path === '/report/weekly/regenerate') {
+    sendJson(res, success({ regenerated: true }, '周报已重新生成'))
+    return
+  }
+
+  const weeklyReportMatch = path.match(/^\/report\/weekly\/([^/]+)$/)
+  if (weeklyReportMatch && method === 'GET') {
+    sendJson(res, success({ weekNumber: 21, startDate: '2026-05-19', endDate: '2026-05-25', canRegenerate: true, regenerateAvailableUntil: '2026-05-28', sections: { schedule: { totalEvents: 28, completed: 25, overdue: 1 }, sleep: { avgDuration: 7.5, avgQuality: '较好' }, exercise: { totalMinutes: 150, targetMet: true }, weight: { startWeight: 68.5, endWeight: 68.3 }, pressure: { avgScore: 55, trend: 'stable' } }, suggestions: ['本周运动目标已达成，继续保持！'] }, '获取成功'))
     return
   }
 
@@ -595,14 +747,66 @@ async function route(req, res) {
     return
   }
 
+  if (method === 'POST' && path === '/admin/admins') {
+    const adminId = `adm_${String(db.admins.length + 1).padStart(3, '0')}`
+    db.admins.push({
+      userId: adminId,
+      phone: body.phone,
+      password: body.password,
+      nickname: body.nickname,
+      avatar: '',
+      role: 'admin',
+      status: 'normal',
+    })
+    db.operationLogs.unshift({
+      logId: Date.now(),
+      adminId: 'adm_001',
+      adminNickname: '系统管理员',
+      action: 'create_admin',
+      actionText: '创建管理员',
+      targetType: 'user',
+      targetId: adminId,
+      targetNickname: body.nickname,
+      reasonCode: '',
+      reasonText: '',
+      details: { phone: body.phone },
+      ipAddress: '127.0.0.1',
+      createTime: '2026-05-27 10:00:00',
+    })
+    sendJson(res, success({ userId: adminId, role: 'admin' }, '创建成功'))
+    return
+  }
+
   const freezeMatch = path.match(/^\/admin\/users\/([^/]+)\/freeze$/)
   if (freezeMatch && method === 'POST') {
     const user = db.users.find((item) => item.userId === freezeMatch[1])
     if (user) {
       user.status = 'frozen'
-      user.freezeReason = body.reason
+      user.freezeReasonCode = body.reasonCode
+      user.freezeReasonText = FREEZE_REASON_TEXT[body.reasonCode] || '其他'
+      user.freezeTime = '2026-05-27 14:30:00'
+      db.operationLogs.unshift({
+        logId: Date.now(),
+        adminId: 'adm_001',
+        adminNickname: '系统管理员',
+        action: 'freeze_user',
+        actionText: '冻结用户',
+        targetType: 'user',
+        targetId: user.userId,
+        targetNickname: user.nickname,
+        reasonCode: body.reasonCode,
+        reasonText: user.freezeReasonText,
+        details: { phone: user.phone },
+        ipAddress: '127.0.0.1',
+        createTime: user.freezeTime,
+      })
     }
-    sendJson(res, success({}, '冻结成功'))
+    sendJson(res, success({
+      userId: user?.userId,
+      freezeTime: user?.freezeTime,
+      reasonCode: user?.freezeReasonCode,
+      reasonText: user?.freezeReasonText,
+    }, '冻结成功'))
     return
   }
 
@@ -611,14 +815,72 @@ async function route(req, res) {
     const user = db.users.find((item) => item.userId === unfreezeMatch[1])
     if (user) {
       user.status = 'normal'
-      user.freezeReason = ''
+      user.freezeReasonCode = null
+      user.freezeReasonText = null
+      user.freezeTime = null
+      db.operationLogs.unshift({
+        logId: Date.now(),
+        adminId: 'adm_001',
+        adminNickname: '系统管理员',
+        action: 'unfreeze_user',
+        actionText: '解封用户',
+        targetType: 'user',
+        targetId: user.userId,
+        targetNickname: user.nickname,
+        reasonCode: '',
+        reasonText: '',
+        details: { phone: user.phone },
+        ipAddress: '127.0.0.1',
+        createTime: '2026-05-27 15:00:00',
+      })
     }
-    sendJson(res, success({}, '解封成功'))
+    sendJson(res, success({ userId: user?.userId, unfreezeTime: '2026-05-27 15:00:00' }, '解封成功'))
+    return
+  }
+
+  const resetPasswordMatch = path.match(/^\/admin\/users\/([^/]+)\/reset_password$/)
+  if (resetPasswordMatch && method === 'POST') {
+    const user = db.users.find((item) => item.userId === resetPasswordMatch[1]) || db.admins.find((item) => item.userId === resetPasswordMatch[1])
+    if (user) {
+      user.password = body.tempPassword
+      user.forceChangePassword = true
+    }
+    db.operationLogs.unshift({
+      logId: Date.now(),
+      adminId: 'adm_001',
+      adminNickname: '系统管理员',
+      action: 'reset_password',
+      actionText: '重置密码',
+      targetType: 'user',
+      targetId: resetPasswordMatch[1],
+      targetNickname: user?.nickname || resetPasswordMatch[1],
+      reasonCode: '',
+      reasonText: '',
+      details: { forceChange: true },
+      ipAddress: '127.0.0.1',
+      createTime: '2026-05-27 15:30:00',
+    })
+    sendJson(res, success({ tempPassword: body.tempPassword, forceChange: true }, '密码重置成功'))
     return
   }
 
   if (method === 'GET' && path === '/admin/announcements') {
-    sendJson(res, success(db.announcements, '获取成功'))
+    const status = url.searchParams.get('status')
+    const type = url.searchParams.get('type')
+    const page = Number(url.searchParams.get('page') || 1)
+    const pageSize = Number(url.searchParams.get('pageSize') || 20)
+    let list = [...db.announcements]
+
+    if (status) {
+      list = list.filter((item) => item.status === status)
+    }
+    if (type) {
+      list = list.filter((item) => item.type === type)
+    }
+
+    const total = list.length
+    const start = (page - 1) * pageSize
+    sendJson(res, success({ total, page, pageSize, list: list.slice(start, start + pageSize) }, '获取成功'))
     return
   }
 
@@ -628,10 +890,25 @@ async function route(req, res) {
       content: body.content,
       type: body.type,
       dismissible: true,
-      status: 'online',
+      status: 'active',
       createTime: '2026-05-27 10:00:00',
     })
-    sendJson(res, success({}, '发布成功'))
+    db.operationLogs.unshift({
+      logId: Date.now(),
+      adminId: 'adm_001',
+      adminNickname: '系统管理员',
+      action: 'publish_announcement',
+      actionText: '发布公告',
+      targetType: 'announcement',
+      targetId: String(db.announcements[0].id),
+      targetNickname: body.type,
+      reasonCode: '',
+      reasonText: '',
+      details: { content: body.content },
+      ipAddress: '127.0.0.1',
+      createTime: '2026-05-27 10:00:00',
+    })
+    sendJson(res, success({ id: db.announcements[0].id }, '发布成功'))
     return
   }
 
@@ -641,6 +918,21 @@ async function route(req, res) {
     if (announcement) {
       announcement.status = 'offline'
     }
+    db.operationLogs.unshift({
+      logId: Date.now(),
+      adminId: 'adm_001',
+      adminNickname: '系统管理员',
+      action: 'offline_announcement',
+      actionText: '下架公告',
+      targetType: 'announcement',
+      targetId: offlineMatch[1],
+      targetNickname: announcement?.type || '',
+      reasonCode: '',
+      reasonText: '',
+      details: { content: announcement?.content },
+      ipAddress: '127.0.0.1',
+      createTime: '2026-05-27 11:00:00',
+    })
     sendJson(res, success({}, '下架成功'))
     return
   }
@@ -651,8 +943,80 @@ async function route(req, res) {
   }
 
   if (method === 'PUT' && path === '/admin/config') {
-    db.config = { ...db.config, ...body, apiWeights: { ...db.config.apiWeights, ...body.apiWeights } }
-    sendJson(res, success({}, '更新成功'))
+    db.config = {
+      health: { ...db.config.health, ...body.health },
+      api: { apiWeights: { ...db.config.api.apiWeights, ...body.api?.apiWeights } },
+      system: { ...db.config.system, ...body.system },
+    }
+    db.operationLogs.unshift({
+      logId: Date.now(),
+      adminId: 'adm_001',
+      adminNickname: '系统管理员',
+      action: 'update_config',
+      actionText: '更新配置',
+      targetType: 'config',
+      targetId: 'system',
+      targetNickname: '系统配置',
+      reasonCode: '',
+      reasonText: '',
+      details: db.config,
+      ipAddress: '127.0.0.1',
+      createTime: '2026-05-27 16:00:00',
+    })
+    sendJson(res, success({}, '配置更新成功'))
+    return
+  }
+
+  if (method === 'GET' && path === '/admin/logs/operation') {
+    const page = Number(url.searchParams.get('page') || 1)
+    const pageSize = Number(url.searchParams.get('pageSize') || 20)
+    const action = url.searchParams.get('action')
+    const targetType = url.searchParams.get('targetType')
+    let list = [...db.operationLogs]
+
+    if (action) {
+      list = list.filter((item) => item.action === action)
+    }
+    if (targetType) {
+      list = list.filter((item) => item.targetType === targetType)
+    }
+
+    const total = list.length
+    const start = (page - 1) * pageSize
+    sendJson(res, success({ total, page, pageSize, list: list.slice(start, start + pageSize) }, '获取成功'))
+    return
+  }
+
+  if (method === 'GET' && path === '/admin/logs/exception') {
+    const page = Number(url.searchParams.get('page') || 1)
+    const pageSize = Number(url.searchParams.get('pageSize') || 20)
+    const exceptionType = url.searchParams.get('exceptionType')
+    let list = [...db.exceptionLogs]
+
+    if (exceptionType) {
+      list = list.filter((item) => item.exceptionType === exceptionType)
+    }
+
+    const total = list.length
+    const start = (page - 1) * pageSize
+    sendJson(res, success({ total, page, pageSize, list: list.slice(start, start + pageSize) }, '获取成功'))
+    return
+  }
+
+  if (method === 'DELETE' && path === '/admin/logs/clean') {
+    const logType = url.searchParams.get('logType') || 'all'
+    let deletedCount = 0
+
+    if (logType === 'operation' || logType === 'all') {
+      deletedCount += db.operationLogs.length
+      db.operationLogs = []
+    }
+    if (logType === 'exception' || logType === 'all') {
+      deletedCount += db.exceptionLogs.length
+      db.exceptionLogs = []
+    }
+
+    sendJson(res, success({ deletedCount }, '日志清理成功'))
     return
   }
 

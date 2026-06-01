@@ -9,14 +9,30 @@ export function setCurrentSemester(data) {
 }
 
 export function downloadScheduleTemplate() {
-  return request.get('/schedule/template', { responseType: 'blob' })
+  return request.get('/course/template', { responseType: 'blob' })
 }
 
 export function importSchedule(file) {
   const formData = new FormData()
   formData.append('file', file)
 
-  return request.post('/schedule/import', formData)
+  return request.post('/course/import', formData)
+}
+
+export function getCourses(config = {}) {
+  return request.get('/course/list', config)
+}
+
+export function createCourse(data) {
+  return request.post('/course', data)
+}
+
+export function updateCourse(courseId, data) {
+  return request.put(`/course/${courseId}`, data)
+}
+
+export function deleteCourse(courseId) {
+  return request.delete(`/course/${courseId}`)
 }
 
 export function getEvents(params, config = {}) {
@@ -40,9 +56,13 @@ export function updateEventStatus(eventId, data) {
 }
 
 export function checkEventConflict(data) {
-  return request.post('/schedule/events/check-conflict', data)
+  return request.post('/schedule/events/check_conflict', data)
 }
 
 export function getVisibleAnnouncements(config = {}) {
   return request.get('/announcements', config)
+}
+
+export function dismissAnnouncement(id) {
+  return request.post(`/announcements/${id}/dismiss`)
 }

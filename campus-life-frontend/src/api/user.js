@@ -12,6 +12,10 @@ export function updatePassword(data) {
   return request.put('/user/password', data)
 }
 
+export function forceUpdatePassword(data) {
+  return request.post('/user/force_password', data)
+}
+
 export function uploadAvatar(file) {
   const formData = new FormData()
   formData.append('avatar', file)

@@ -5,12 +5,21 @@ import { getConfig, updateConfig } from '../../api/admin'
 
 const loading = ref(false)
 const config = reactive({
-  defaultExerciseTarget: 150,
-  apiWeights: {
-    courseHours: 30,
-    examCount: 15,
-    ddlCount: 5,
-    completionRate: 20,
+  health: {
+    defaultExerciseTarget: 150,
+  },
+  api: {
+    apiWeights: {
+      courseHours: 30,
+      examCount: 15,
+      ddlCount: 5,
+      completionRate: 20,
+    },
+  },
+  system: {
+    logRetentionDays: 90,
+    abnormalCheckinThreshold: 50,
+    procrastinationThreshold: 70,
   },
 })
 
@@ -21,8 +30,9 @@ async function loadConfig() {
     const res = await getConfig({ silentError: true })
     const data = res.data || {}
 
-    config.defaultExerciseTarget = data.defaultExerciseTarget ?? config.defaultExerciseTarget
-    Object.assign(config.apiWeights, data.apiWeights || {})
+    Object.assign(config.health, data.health || {})
+    Object.assign(config.api.apiWeights, data.api?.apiWeights || {})
+    Object.assign(config.system, data.system || {})
   } finally {
     loading.value = false
   }
@@ -59,7 +69,7 @@ onMounted(loadConfig)
         <h2>健康目标参数</h2>
         <el-form label-position="top">
           <el-form-item label="默认每周运动目标（分钟）">
-            <el-input-number v-model="config.defaultExerciseTarget" :min="1" :max="600" />
+            <el-input-number v-model="config.health.defaultExerciseTarget" :min="1" :max="600" />
           </el-form-item>
         </el-form>
       </div>
@@ -68,20 +78,38 @@ onMounted(loadConfig)
         <h2>学业压力指数权重</h2>
         <el-form label-position="top" class="weight-form">
           <el-form-item label="课程时长权重">
-            <el-input-number v-model="config.apiWeights.courseHours" :min="0" :max="100" />
+            <el-input-number v-model="config.api.apiWeights.courseHours" :min="0" :max="100" />
           </el-form-item>
           <el-form-item label="考试数量权重">
-            <el-input-number v-model="config.apiWeights.examCount" :min="0" :max="100" />
+            <el-input-number v-model="config.api.apiWeights.examCount" :min="0" :max="100" />
           </el-form-item>
           <el-form-item label="DDL数量权重">
-            <el-input-number v-model="config.apiWeights.ddlCount" :min="0" :max="100" />
+            <el-input-number v-model="config.api.apiWeights.ddlCount" :min="0" :max="100" />
           </el-form-item>
           <el-form-item label="完成率权重">
-            <el-input-number v-model="config.apiWeights.completionRate" :min="0" :max="100" />
+            <el-input-number v-model="config.api.apiWeights.completionRate" :min="0" :max="100" />
           </el-form-item>
         </el-form>
-        <el-button type="primary" @click="saveConfig">保存配置</el-button>
       </div>
+
+      <div class="panel config-panel">
+        <h2>系统风控参数</h2>
+        <el-form label-position="top" class="weight-form">
+          <el-form-item label="日志保留天数">
+            <el-input-number v-model="config.system.logRetentionDays" :min="1" :max="3650" />
+          </el-form-item>
+          <el-form-item label="异常打卡阈值（次/分钟）">
+            <el-input-number v-model="config.system.abnormalCheckinThreshold" :min="1" :max="1000" />
+          </el-form-item>
+          <el-form-item label="拖延症预警阈值（%）">
+            <el-input-number v-model="config.system.procrastinationThreshold" :min="0" :max="100" />
+          </el-form-item>
+        </el-form>
+      </div>
+    </div>
+
+    <div class="actions">
+      <el-button type="primary" @click="saveConfig">保存配置</el-button>
     </div>
   </section>
 </template>
@@ -110,5 +138,9 @@ onMounted(loadConfig)
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0 18px;
+}
+
+.actions {
+  margin-top: 18px;
 }
 </style>
