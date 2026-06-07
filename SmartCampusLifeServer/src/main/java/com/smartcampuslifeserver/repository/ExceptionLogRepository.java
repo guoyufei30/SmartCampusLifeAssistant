@@ -16,4 +16,6 @@ public interface ExceptionLogRepository extends JpaRepository<ExceptionLog, Long
     void deleteByCreateTimeBefore(LocalDateTime dateTime);
 
     long countByCreateTimeBefore(LocalDateTime dateTime);
+
+    void deleteByUserId(String userId);
 }

@@ -56,6 +56,9 @@ public class User {
     private String frozenReason;
 
     @Column(nullable = false)
+    private Boolean forceChangePassword = false;
+
+    @Column(nullable = false)
     private LocalDateTime createTime;
 
     private LocalDateTime lastLoginTime;

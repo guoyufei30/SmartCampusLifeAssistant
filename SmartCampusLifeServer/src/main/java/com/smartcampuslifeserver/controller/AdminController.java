@@ -4,6 +4,7 @@ import com.smartcampuslifeserver.entity.*;
 import com.smartcampuslifeserver.repository.*;
 import lombok.Data;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -31,6 +32,9 @@ public class AdminController {
 
     @Autowired
     private SystemConfigRepository systemConfigRepository;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
 
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
@@ -182,7 +186,8 @@ public class AdminController {
 
         String tempPassword = body.get("tempPassword");
         User user = optUser.get();
-        user.setPassword(tempPassword);
+        user.setPassword(passwordEncoder.encode(tempPassword));
+        user.setForceChangePassword(true);
         userRepository.save(user);
 
         // 记录操作日志
@@ -496,7 +501,7 @@ public class AdminController {
         User admin = new User();
         admin.setUserId("adm_" + UUID.randomUUID().toString().substring(0, 8));
         admin.setPhone(phone);
-        admin.setPassword(password);
+        admin.setPassword(passwordEncoder.encode(password));
         admin.setNickname(nickname);
         admin.setRole("admin");
         admin.setStatus("normal");
