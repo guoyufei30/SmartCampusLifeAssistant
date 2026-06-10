@@ -38,7 +38,8 @@ public class UserController {
     }
 
     @PostMapping("/avatar")
-    public Result<AvatarUploadResponse> uploadAvatar(@RequestParam("avatar") MultipartFile avatar) {
+    public Result<AvatarUploadResponse> uploadAvatar(
+            @RequestParam(value = "avatar", required = false) MultipartFile avatar) {
         return userService.uploadAvatar(SecurityUtils.getUserId(), avatar);
     }
 

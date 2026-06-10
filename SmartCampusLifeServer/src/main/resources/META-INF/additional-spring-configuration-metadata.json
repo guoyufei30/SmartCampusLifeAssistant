@@ -1,0 +1,45 @@
+{
+  "groups": [
+    {
+      "name": "jwt",
+      "type": "java.lang.Object",
+      "description": "JWT configuration."
+    },
+    {
+      "name": "app",
+      "type": "java.lang.Object",
+      "description": "Application custom configuration."
+    }
+  ],
+  "properties": [
+    {
+      "name": "jwt.secret",
+      "type": "java.lang.String",
+      "description": "JWT signing secret."
+    },
+    {
+      "name": "app.upload.dir",
+      "type": "java.lang.String",
+      "description": "Local directory for uploaded files.",
+      "defaultValue": "uploads"
+    },
+    {
+      "name": "app.health.abnormal-checkin-threshold",
+      "type": "java.lang.Integer",
+      "description": "Threshold for abnormal health check-in detection.",
+      "defaultValue": 50
+    },
+    {
+      "name": "app.report.default-exercise-target",
+      "type": "java.lang.Integer",
+      "description": "Default weekly exercise target minutes.",
+      "defaultValue": 150
+    },
+    {
+      "name": "app.report.procrastination-threshold",
+      "type": "java.lang.Integer",
+      "description": "Procrastination score threshold for reports.",
+      "defaultValue": 70
+    }
+  ]
+}

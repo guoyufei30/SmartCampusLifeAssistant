@@ -48,7 +48,8 @@ public class CourseController {
     }
 
     @PostMapping("/import")
-    public Result<CourseImportResponse> importCourses(@RequestParam("file") MultipartFile file) {
+    public Result<CourseImportResponse> importCourses(
+            @RequestParam(value = "file", required = false) MultipartFile file) {
         return courseService.importCourses(SecurityUtils.getUserId(), file);
     }
 

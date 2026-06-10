@@ -1,5 +1,6 @@
 package com.smartcampuslifeserver.controller;
 
+import com.smartcampuslifeserver.common.exception.BusinessException;
 import com.smartcampuslifeserver.common.result.Result;
 import com.smartcampuslifeserver.common.utils.SecurityUtils;
 import com.smartcampuslifeserver.dto.*;
@@ -34,16 +35,19 @@ public class ScheduleController {
 
     @PutMapping("/{eventId}")
     public Result<Void> updateEvent(@PathVariable String eventId, @RequestBody UpdateEventRequest request) {
+        rejectBlankEventId(eventId);
         return scheduleService.updateEvent(SecurityUtils.getUserId(), eventId, request);
     }
 
     @DeleteMapping("/{eventId}")
     public Result<Void> deleteEvent(@PathVariable String eventId) {
+        rejectBlankEventId(eventId);
         return scheduleService.deleteEvent(SecurityUtils.getUserId(), eventId);
     }
 
     @PatchMapping("/{eventId}/status")
     public Result<Void> updateStatus(@PathVariable String eventId, @RequestBody UpdateEventStatusRequest request) {
+        rejectBlankEventId(eventId);
         return scheduleService.updateStatus(SecurityUtils.getUserId(), eventId, request);
     }
 
@@ -60,5 +64,11 @@ public class ScheduleController {
     @PostMapping("/reminder/ack")
     public Result<Void> ackReminder(@RequestBody ReminderAckRequest request) {
         return scheduleService.ackReminder(SecurityUtils.getUserId(), request);
+    }
+
+    private void rejectBlankEventId(String eventId) {
+        if (eventId == null || eventId.isBlank()) {
+            throw new BusinessException(404, "日程不存在");
+        }
     }
 }

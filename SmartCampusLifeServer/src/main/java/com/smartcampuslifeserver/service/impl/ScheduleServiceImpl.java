@@ -135,6 +135,7 @@ public class ScheduleServiceImpl implements ScheduleService {
     @Transactional
     public Result<Void> updateEvent(String userId, String eventId, UpdateEventRequest request) {
         validateUser(userId);
+        requireEventId(eventId);
         ScheduleEvent event = scheduleEventRepository.findByIdAndUserId(eventId, userId)
                 .orElseThrow(() -> new BusinessException(404, "日程不存在"));
 
@@ -197,6 +198,7 @@ public class ScheduleServiceImpl implements ScheduleService {
     @Transactional
     public Result<Void> deleteEvent(String userId, String eventId) {
         validateUser(userId);
+        requireEventId(eventId);
         ScheduleEvent event = scheduleEventRepository.findByIdAndUserId(eventId, userId)
                 .orElseThrow(() -> new BusinessException(404, "日程不存在"));
 
@@ -211,6 +213,7 @@ public class ScheduleServiceImpl implements ScheduleService {
     @Transactional
     public Result<Void> updateStatus(String userId, String eventId, UpdateEventStatusRequest request) {
         validateUser(userId);
+        requireEventId(eventId);
         if (request.getStatus() == null
                 || (!"pending".equals(request.getStatus()) && !"completed".equals(request.getStatus()))) {
             throw new BusinessException(400, "状态仅支持 pending 或 completed");
@@ -697,5 +700,11 @@ public class ScheduleServiceImpl implements ScheduleService {
 
     private String formatDateTime(LocalDateTime value) {
         return value != null ? value.format(DATE_TIME_FMT) : null;
+    }
+
+    private void requireEventId(String eventId) {
+        if (eventId == null || eventId.isBlank()) {
+            throw new BusinessException(404, "日程不存在");
+        }
     }
 }

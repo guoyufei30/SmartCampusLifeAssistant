@@ -16,13 +16,11 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -184,9 +182,17 @@ public class UserServiceImpl implements UserService {
             throw new BusinessException(400, "头像文件大小不能超过5MB");
         }
 
-        String contentType = avatar.getContentType();
-        String originalFilename = avatar.getOriginalFilename();
-        String extension = resolveImageExtension(contentType, originalFilename);
+        final byte[] content;
+        try {
+            content = avatar.getBytes();
+        } catch (IOException e) {
+            throw new BusinessException(400, "请上传头像文件");
+        }
+        if (content.length == 0) {
+            throw new BusinessException(400, "请上传头像文件");
+        }
+
+        String extension = resolveImageExtension(avatar.getContentType(), avatar.getOriginalFilename(), content);
         if (extension == null) {
             throw new BusinessException(400, "仅支持JPG/PNG格式图片");
         }
@@ -195,9 +201,7 @@ public class UserServiceImpl implements UserService {
             Files.createDirectories(avatarDir);
             String filename = userId + "_" + UUID.randomUUID().toString().substring(0, 8) + extension;
             Path target = avatarDir.resolve(filename);
-            try (InputStream inputStream = avatar.getInputStream()) {
-                Files.copy(inputStream, target, StandardCopyOption.REPLACE_EXISTING);
-            }
+            Files.write(target, content);
 
             String avatarUrl = "/uploads/avatars/" + filename;
             user.setAvatar(avatarUrl);
@@ -397,5 +401,43 @@ public class UserServiceImpl implements UserService {
             }
         }
         return null;
+    }
+
+    private String resolveImageExtension(String contentType, String originalFilename, byte[] content) {
+        boolean jpeg = isJpeg(content);
+        boolean png = isPng(content);
+        if (!jpeg && !png) {
+            return null;
+        }
+
+        String declared = resolveImageExtension(contentType, originalFilename);
+        if (declared != null) {
+            if (".jpg".equals(declared) && jpeg) {
+                return ".jpg";
+            }
+            if (".png".equals(declared) && png) {
+                return ".png";
+            }
+            return null;
+        }
+        return jpeg ? ".jpg" : ".png";
+    }
+
+    private boolean isJpeg(byte[] content) {
+        return content.length >= 2
+                && (content[0] & 0xFF) == 0xFF
+                && (content[1] & 0xFF) == 0xD8;
+    }
+
+    private boolean isPng(byte[] content) {
+        return content.length >= 8
+                && content[0] == (byte) 0x89
+                && content[1] == 0x50
+                && content[2] == 0x4E
+                && content[3] == 0x47
+                && content[4] == 0x0D
+                && content[5] == 0x0A
+                && content[6] == 0x1A
+                && content[7] == 0x0A;
     }
 }
