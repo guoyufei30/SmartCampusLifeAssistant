@@ -82,7 +82,7 @@ public class AuthServiceImpl implements AuthService {
         User user = userRepository.findByPhone(request.getPhone())
                 .orElseThrow(() -> new BusinessException(401, "手机号或密码错误"));
 
-        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+        if (!matchesPassword(request.getPassword(), user)) {
             throw new BusinessException(401, "手机号或密码错误");
         }
 
@@ -202,6 +202,25 @@ public class AuthServiceImpl implements AuthService {
             response.setForceChangePassword(true);
         }
         return response;
+    }
+
+    private boolean matchesPassword(String rawPassword, User user) {
+        String storedPassword = user.getPassword();
+        if (storedPassword == null || storedPassword.isBlank()) {
+            return false;
+        }
+
+        if (passwordEncoder.matches(rawPassword, storedPassword)) {
+            return true;
+        }
+
+        if (rawPassword.equals(storedPassword)) {
+            user.setPassword(passwordEncoder.encode(rawPassword));
+            userRepository.save(user);
+            return true;
+        }
+
+        return false;
     }
 
     private void verifyCode(String phone, String type, String code) {
